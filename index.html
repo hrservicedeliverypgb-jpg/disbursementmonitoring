@@ -773,6 +773,10 @@
         <input type="file" id="bulk-upload-file" accept=".xlsx,.xls,.csv">
         <button class="btn btn-primary" id="bulk-upload-submit">Upload</button>
       </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-dim);margin-top:10px;">
+        <input type="checkbox" id="bulk-upload-replace" style="width:auto;margin:0;">
+        Replace the entire register with this file (removes all existing RFDs first — cannot be undone)
+      </label>
       <div id="bulk-upload-result" style="font-size:12.5px;color:var(--text-dim);margin-top:10px;"></div>
     </div>
   </div>
@@ -1928,8 +1932,16 @@
       resultEl.textContent = 'Could not find "Affiliate" and "RFD Number" columns — check the file headers match the template.';
       return;
     }
+    const replaceEl = document.getElementById('bulk-upload-replace');
+    const replaceMode = replaceEl.checked;
+    if(replaceMode){
+      if(!confirm('This will permanently remove every existing RFD (the original register plus anything added or edited since) and replace it with this file. This cannot be undone. Continue?')){
+        return;
+      }
+      overrides = { added: [], edited: {}, deleted: BASE.map(r=>r.id) };
+    }
     const val = (cells, key)=> colIndex[key]!==undefined ? (cells[colIndex[key]]||'').trim() : '';
-    const existingRfds = new Set(DATA.map(r=> (r.rfd||'').toUpperCase()).filter(Boolean));
+    const existingRfds = replaceMode ? new Set() : new Set(DATA.map(r=> (r.rfd||'').toUpperCase()).filter(Boolean));
     let added = 0, skipped = 0, duplicates = 0;
     rows.slice(1).forEach((cells, idx)=>{
       const affiliate = val(cells,'affiliate').toUpperCase();
@@ -1958,7 +1970,8 @@
     saveOverrides(overrides);
     rerenderAll();
     fileInput.value = '';
-    resultEl.textContent = `Added ${added} RFD${added===1?'':'s'}.`
+    replaceEl.checked = false;
+    resultEl.textContent = `${replaceMode ? 'Replaced the register — added' : 'Added'} ${added} RFD${added===1?'':'s'}.`
       + (duplicates ? ` Skipped ${duplicates} duplicate RFD number${duplicates===1?'':'s'} already in the register.` : '')
       + (skipped ? ` Skipped ${skipped} row${skipped===1?'':'s'} (missing affiliate, RFD number, or a valid amount).` : '');
   });
