@@ -1929,12 +1929,16 @@
       return;
     }
     const val = (cells, key)=> colIndex[key]!==undefined ? (cells[colIndex[key]]||'').trim() : '';
-    let added = 0, skipped = 0;
+    const existingRfds = new Set(DATA.map(r=> (r.rfd||'').toUpperCase()).filter(Boolean));
+    let added = 0, skipped = 0, duplicates = 0;
     rows.slice(1).forEach((cells, idx)=>{
       const affiliate = val(cells,'affiliate').toUpperCase();
       const rfd = val(cells,'rfd');
       const amount = parseFloat(val(cells,'amount').replace(/,/g,''));
       if(!affiliate || !rfd || isNaN(amount)){ skipped++; return; }
+      const rfdKey = rfd.toUpperCase();
+      if(existingRfds.has(rfdKey)){ duplicates++; return; }
+      existingRfds.add(rfdKey);
       overrides.added.push({
         id: 'added_'+Date.now()+'_'+Math.floor(Math.random()*1000)+'_'+idx,
         source: 'Added',
@@ -1954,7 +1958,9 @@
     saveOverrides(overrides);
     rerenderAll();
     fileInput.value = '';
-    resultEl.textContent = `Added ${added} RFD${added===1?'':'s'}.` + (skipped ? ` Skipped ${skipped} row${skipped===1?'':'s'} (missing affiliate, RFD number, or a valid amount).` : '');
+    resultEl.textContent = `Added ${added} RFD${added===1?'':'s'}.`
+      + (duplicates ? ` Skipped ${duplicates} duplicate RFD number${duplicates===1?'':'s'} already in the register.` : '')
+      + (skipped ? ` Skipped ${skipped} row${skipped===1?'':'s'} (missing affiliate, RFD number, or a valid amount).` : '');
   });
 
   // =========================================================
