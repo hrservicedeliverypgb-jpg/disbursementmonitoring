@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --ink:#0a2c56;
@@ -524,6 +527,11 @@
     margin-bottom:14px;
     display:inline-block;
   }
+
+  .sync-badge{display:inline-block;font-size:11px;font-weight:600;}
+  .sync-badge.synced{color:#3fbf8f;}
+  .sync-badge.connecting{color:#d7ac4a;}
+  .sync-badge.offline{color:#8a93a3;}
 </style>
 </head>
 <body>
@@ -584,7 +592,8 @@
     </div>
   </div>
   <div class="sidebar-foot">
-    Signed in as <b id="session-role-label">—</b> · <a href="#" id="logout-btn" style="color:#8a93a3;">Log out</a>
+    Signed in as <b id="session-role-label">—</b> · <a href="#" id="logout-btn" style="color:#8a93a3;">Log out</a><br>
+    <span id="sync-badge" class="sync-badge offline">● Offline — local only</span>
   </div>
 </div>
 
@@ -1052,6 +1061,119 @@
 (function(){
   "use strict";
 
+  // ---------- Live cloud sync (Firebase) ----------
+  // Reuses the same Firebase project as the PGB Benefits Dashboard. Only the
+  // "overrides" delta (added/edited/deleted on top of the embedded base
+  // register) is synced — the embedded dataset itself stays baked into the
+  // page at build time, unchanged.
+  var firebaseConfig = {
+    apiKey: "AIzaSyDHTb2p5fPw0Se0bArixGOaQ0jbbIA_vyQ",
+    authDomain: "pgb-benefits-dashboard.firebaseapp.com",
+    projectId: "pgb-benefits-dashboard",
+    storageBucket: "pgb-benefits-dashboard.firebasestorage.app",
+    messagingSenderId: "424525888899",
+    appId: "1:424525888899:web:1c3b9a3a912ccb4ce48ab6"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var fbAuth = firebase.auth();
+  var fbDb = firebase.firestore();
+  var CLOUD_DOC = fbDb.collection('rfdMonitoringOverrides').doc('overrides');
+  var MAX_CLOUD_DOC_BYTES = 900000; // stay safely under Firestore's 1MiB document limit
+  var cloudUnsub = null;
+  var cloudFirstSnapshot = true;
+
+  function setSyncBadge(state){
+    var el = document.getElementById('sync-badge');
+    if(!el) return;
+    el.className = 'sync-badge ' + state;
+    el.textContent = state === 'synced' ? '● Live' : (state === 'connecting' ? '● Connecting…' : '● Offline — local only');
+  }
+
+  // A base64 file attachment can be several MB, far past what a single
+  // Firestore document can hold, so uploaded files never leave the browser
+  // that attached them. Link-style attachments (Drive/SharePoint URLs) sync fine.
+  function stripLocalAttachment(v){ return (typeof v === 'string' && v.indexOf('data:') === 0) ? '__local_only__' : v; }
+  function forCloud(rec){ return Object.assign({}, rec, { att1: stripLocalAttachment(rec.att1), att2: stripLocalAttachment(rec.att2) }); }
+  function keepLocalAttachment(cloudVal, localVal){ return cloudVal === '__local_only__' ? (localVal || '') : cloudVal; }
+
+  function mergeOverrides(local, remote){
+    var byId = {};
+    (local.added||[]).forEach(function(r){ byId[r.id] = r; });
+    (remote.added||[]).forEach(function(r){ byId[r.id] = r; });
+    var deletedSet = new Set((local.deleted||[]).concat(remote.deleted||[]));
+    return {
+      added: Object.keys(byId).map(function(id){ return byId[id]; }).filter(function(r){ return !deletedSet.has(r.id); }),
+      edited: Object.assign({}, local.edited||{}, remote.edited||{}),
+      deleted: Array.from(deletedSet)
+    };
+  }
+
+  function pushCloudOverrides(o){
+    if(!fbAuth.currentUser) return;
+    var payload = {
+      added: o.added.map(forCloud),
+      edited: Object.keys(o.edited).reduce(function(acc,id){ acc[id] = forCloud(o.edited[id]); return acc; }, {}),
+      deleted: o.deleted,
+      updatedAt: new Date().toISOString()
+    };
+    if(JSON.stringify(payload).length > MAX_CLOUD_DOC_BYTES){
+      console.warn('RFD overrides too large to sync live; staying local-only on this device.');
+      setSyncBadge('offline');
+      return;
+    }
+    CLOUD_DOC.set(payload).catch(function(err){
+      console.warn('RFD cloud sync failed, staying local-only:', err);
+      setSyncBadge('offline');
+    });
+  }
+
+  function subscribeCloud(){
+    if(cloudUnsub) return;
+    setSyncBadge('connecting');
+    cloudUnsub = CLOUD_DOC.onSnapshot(function(snap){
+      if(snap.metadata.hasPendingWrites) return; // our own optimistic write echoing back
+      if(!snap.exists){ pushCloudOverrides(overrides); setSyncBadge('synced'); return; }
+      var remote = snap.data();
+      if(cloudFirstSnapshot){
+        cloudFirstSnapshot = false;
+        var hasLocal = overrides.added.length || Object.keys(overrides.edited).length || overrides.deleted.length;
+        if(hasLocal){
+          overrides = mergeOverrides(overrides, remote);
+          saveOverrides(overrides);
+          rerenderAll();
+          setSyncBadge('synced');
+          return;
+        }
+      }
+      var mergedAdded = (remote.added||[]).map(function(r){
+        var local = overrides.added.find(function(x){ return x.id===r.id; });
+        return Object.assign({}, r, { att1: keepLocalAttachment(r.att1, local && local.att1), att2: keepLocalAttachment(r.att2, local && local.att2) });
+      });
+      var remoteEdited = remote.edited || {};
+      var mergedEdited = Object.keys(remoteEdited).reduce(function(acc,id){
+        var r = remoteEdited[id], local = overrides.edited[id];
+        acc[id] = Object.assign({}, r, { att1: keepLocalAttachment(r.att1, local && local.att1), att2: keepLocalAttachment(r.att2, local && local.att2) });
+        return acc;
+      }, {});
+      overrides = { added: mergedAdded, edited: mergedEdited, deleted: remote.deleted || [] };
+      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides)); }catch(e){}
+      rerenderAll();
+      setSyncBadge('synced');
+    }, function(err){
+      console.warn('RFD cloud sync unavailable, staying local-only:', err);
+      setSyncBadge('offline');
+    });
+  }
+
+  function ensureCloudAuth(){
+    if(fbAuth.currentUser){ subscribeCloud(); return; }
+    setSyncBadge('connecting');
+    fbAuth.signInAnonymously().then(subscribeCloud).catch(function(err){
+      console.warn('Cloud sign-in failed, staying local-only:', err);
+      setSyncBadge('offline');
+    });
+  }
+
   // ---------- Access gate ----------
   // NOTE: this is a soft, client-side gate only — not real security. The
   // passwords below and all dashboard data are still present in this page's
@@ -1077,6 +1199,7 @@
     document.getElementById('login-gate').classList.add('hidden');
     applyRoleRestrictions(role);
     startIdleWatch();
+    ensureCloudAuth();
   }
 
   // ---------- Auto-logout after 1 minute idle ----------
@@ -1176,6 +1299,7 @@
   }
   function saveOverrides(o){
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(o)); }catch(e){ /* storage unavailable, edits stay in-memory for this session */ }
+    pushCloudOverrides(o);
   }
   let overrides = loadOverrides();
 
