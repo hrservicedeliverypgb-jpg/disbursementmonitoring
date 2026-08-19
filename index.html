@@ -1062,17 +1062,17 @@
   "use strict";
 
   // ---------- Live cloud sync (Firebase) ----------
-  // Reuses the same Firebase project as the PGB Benefits Dashboard. Only the
-  // "overrides" delta (added/edited/deleted on top of the embedded base
+  // Uses its own dedicated Firebase project (disbursementmonitoring). Only
+  // the "overrides" delta (added/edited/deleted on top of the embedded base
   // register) is synced — the embedded dataset itself stays baked into the
   // page at build time, unchanged.
   var firebaseConfig = {
-    apiKey: "AIzaSyDHTb2p5fPw0Se0bArixGOaQ0jbbIA_vyQ",
-    authDomain: "pgb-benefits-dashboard.firebaseapp.com",
-    projectId: "pgb-benefits-dashboard",
-    storageBucket: "pgb-benefits-dashboard.firebasestorage.app",
-    messagingSenderId: "424525888899",
-    appId: "1:424525888899:web:1c3b9a3a912ccb4ce48ab6"
+    apiKey: "AIzaSyCxZsfDNspSj5JS25_EhZl7wxgoWgHbWYM",
+    authDomain: "disbursementmonitoring.firebaseapp.com",
+    projectId: "disbursementmonitoring",
+    storageBucket: "disbursementmonitoring.firebasestorage.app",
+    messagingSenderId: "921176258362",
+    appId: "1:921176258362:web:8b8be46b3986b985de0203"
   };
   firebase.initializeApp(firebaseConfig);
   var fbAuth = firebase.auth();
