@@ -889,7 +889,7 @@
     <div class="topbar">
       <div>
         <h1 class="page-title">All Records</h1>
-        <div class="page-sub">Open RFD register (Unpaid and Paid — For OR Issuance) — Paid requests are tracked separately below</div>
+        <div class="page-sub">Full RFD register — filter by affiliate or status</div>
       </div>
       <div class="filters">
         <select id="rec-affiliate"><option value="">All affiliates</option></select>
@@ -921,107 +921,6 @@
       <div class="pager" id="records-pager"></div>
     </div>
 
-    <!-- Separate box: Unpaid RFDs only -->
-    <div class="panel" style="margin-top:16px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
-        <div>
-          <h3 style="margin-bottom:2px;">Unpaid RFDs</h3>
-          <div class="panel-sub" style="margin:0;">Requests still awaiting payment — status "Unpaid" only</div>
-        </div>
-        <div class="filters">
-          <select id="unpaid-affiliate"><option value="">All affiliates</option></select>
-          <input type="text" id="unpaid-search" placeholder="Search RFD, payee, invoice…">
-        </div>
-      </div>
-      <div class="kpi-row" id="unpaid-kpi-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;"></div>
-      <div class="table-wrap">
-        <table id="unpaid-table">
-          <thead>
-            <tr>
-              <th data-key="affiliate">Affiliate</th>
-              <th data-key="rfd">RFD #</th>
-              <th data-key="payee">Payee</th>
-              <th data-key="invoice">Invoice / SOA</th>
-              <th data-key="amount" class="num">Amount</th>
-              <th data-key="dateReceived">Received</th>
-              <th data-key="age" class="num">Age (days)</th>
-              <th>Remarks</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div class="pager" id="unpaid-pager"></div>
-    </div>
-
-    <!-- Separate box: Paid — For OR Issuance only -->
-    <div class="panel" style="margin-top:16px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
-        <div>
-          <h3 style="margin-bottom:2px;">Paid — For OR Issuance</h3>
-          <div class="panel-sub" style="margin:0;">Payment released, official receipt not yet issued</div>
-        </div>
-        <div class="filters">
-          <select id="pendingor-affiliate"><option value="">All affiliates</option></select>
-          <input type="text" id="pendingor-search" placeholder="Search RFD, payee, invoice…">
-        </div>
-      </div>
-      <div class="kpi-row" id="pendingor-kpi-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;"></div>
-      <div class="table-wrap">
-        <table id="pendingor-table">
-          <thead>
-            <tr>
-              <th data-key="affiliate">Affiliate</th>
-              <th data-key="rfd">RFD #</th>
-              <th data-key="payee">Payee</th>
-              <th data-key="invoice">Invoice / SOA</th>
-              <th data-key="amount" class="num">Amount</th>
-              <th data-key="dateReceived">Received</th>
-              <th data-key="orNumber">OR #</th>
-              <th data-key="age" class="num">Age (days)</th>
-              <th>Remarks</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div class="pager" id="pendingor-pager"></div>
-    </div>
-
-    <!-- Separate box: Paid RFDs only, kept apart from the mixed register above -->
-    <div class="panel" style="margin-top:16px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
-        <div>
-          <h3 style="margin-bottom:2px;">Paid RFDs</h3>
-          <div class="panel-sub" style="margin:0;">Fully settled requests — status "Paid" only</div>
-        </div>
-        <div class="filters">
-          <select id="paid-affiliate"><option value="">All affiliates</option></select>
-          <input type="text" id="paid-search" placeholder="Search RFD, payee, invoice…">
-        </div>
-      </div>
-      <div class="kpi-row" id="paid-kpi-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;"></div>
-      <div class="table-wrap">
-        <table id="paid-table">
-          <thead>
-            <tr>
-              <th data-key="affiliate">Affiliate</th>
-              <th data-key="rfd">RFD #</th>
-              <th data-key="payee">Payee</th>
-              <th data-key="invoice">Invoice / SOA</th>
-              <th data-key="amount" class="num">Amount</th>
-              <th data-key="dateReceived">Received</th>
-              <th data-key="orNumber">OR #</th>
-              <th data-key="paymentDate">Payment date</th>
-              <th>Payment details</th>
-              <th>Remarks</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div class="pager" id="paid-pager"></div>
-    </div>
   </div>
 
 </div>
@@ -1415,18 +1314,12 @@
     document.getElementById('ag-affiliate').dataset.allLabel = 'All affiliates';
     document.getElementById('rec-affiliate').dataset.allLabel = 'All affiliates';
     document.getElementById('rec-status').dataset.allLabel = 'All statuses';
-    document.getElementById('paid-affiliate').dataset.allLabel = 'All affiliates';
-    document.getElementById('unpaid-affiliate').dataset.allLabel = 'All affiliates';
-    document.getElementById('pendingor-affiliate').dataset.allLabel = 'All affiliates';
 
     fillSelect('ov-affiliate', affiliates);
     fillSelect('ov-status', statuses, statusLabel);
     fillSelect('ag-affiliate', affiliates);
     fillSelect('rec-affiliate', affiliates);
-    fillSelect('rec-status', statuses.filter(s=>s!=='PAID'), statusLabel);
-    fillSelect('paid-affiliate', affiliates);
-    fillSelect('unpaid-affiliate', affiliates);
-    fillSelect('pendingor-affiliate', affiliates);
+    fillSelect('rec-status', statuses, statusLabel);
 
     const dl = document.getElementById('mg-affiliate-list');
     if(dl) dl.innerHTML = affiliates.map(a=>`<option value="${a}">`).join('');
@@ -1722,7 +1615,7 @@
     const aff = document.getElementById('rec-affiliate').value;
     const status = document.getElementById('rec-status').value;
     const q = document.getElementById('rec-search').value.trim().toUpperCase();
-    let rows = DATA.filter(r=> r.status !== 'PAID'); // Paid RFDs live in their own box below, not duplicated here
+    let rows = DATA.slice();
     if(aff) rows = rows.filter(r=>r.affiliate===aff);
     if(status) rows = rows.filter(r=>r.status===status);
     if(q) rows = rows.filter(r=>
@@ -1795,135 +1688,6 @@
       if(recSortKey === key) recSortDir *= -1; else { recSortKey = key; recSortDir = -1; }
       renderRecords();
     });
-  });
-
-  // =========================================================
-  // STATUS BOXES (Unpaid / Paid — For OR / Paid) — separate from All Records
-  // =========================================================
-  function createStatusBox(cfg){
-    let page = 0;
-    const PAGE_SIZE = 30;
-    let sortKey = 'dateReceived', sortDir = -1;
-    const affEl = document.getElementById(cfg.prefix+'-affiliate');
-    const searchEl = document.getElementById(cfg.prefix+'-search');
-
-    function filteredRows(){
-      const aff = affEl.value;
-      const q = searchEl.value.trim().toUpperCase();
-      let rows = DATA.filter(r=> r.status === cfg.status);
-      if(aff) rows = rows.filter(r=>r.affiliate===aff);
-      if(q) rows = rows.filter(r=>
-        (r.rfd||'').toUpperCase().includes(q) ||
-        (r.payee||'').toUpperCase().includes(q) ||
-        (r.invoice||'').toUpperCase().includes(q)
-      );
-      rows.sort((a,b)=>{
-        const av = a[sortKey]||'', bv = b[sortKey]||'';
-        if(av === bv) return 0;
-        return (av > bv ? 1 : -1) * sortDir;
-      });
-      return rows;
-    }
-
-    function render(){
-      const all = filteredRows();
-      const totalAmt = all.reduce((s,r)=>s+(r.amount||0),0);
-      const affCount = new Set(all.map(r=>r.affiliate)).size;
-
-      document.getElementById(cfg.prefix+'-kpi-row').innerHTML = `
-        <div class="kpi ${cfg.kpiClass}">
-          <div class="kpi-label">${cfg.countLabel}</div>
-          <div class="kpi-value">${all.length.toLocaleString()}</div>
-          <div class="kpi-sub">status = ${statusLabel(cfg.status)}</div>
-        </div>
-        <div class="kpi ${cfg.kpiClass}">
-          <div class="kpi-label">${cfg.amountLabel}</div>
-          <div class="kpi-value">${fmtMoneyShort(totalAmt)}</div>
-          <div class="kpi-sub">${fmtMoney(totalAmt)}</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Affiliates represented</div>
-          <div class="kpi-value">${affCount}</div>
-          <div class="kpi-sub">of ${new Set(DATA.map(r=>r.affiliate)).size} total</div>
-        </div>
-      `;
-
-      const totalPages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
-      page = Math.min(page, totalPages-1);
-      const pageRows = all.slice(page*PAGE_SIZE, (page+1)*PAGE_SIZE);
-      const colCount = 6 + cfg.extraCols.length + 1;
-
-      document.querySelector('#'+cfg.prefix+'-table tbody').innerHTML = pageRows.map(r=>`
-        <tr>
-          <td><span class="aff-chip" style="${affiliateChipStyle(r.affiliate)}">${r.affiliate}</span></td>
-          <td class="mono">${r.rfd}</td>
-          <td>${r.payee}</td>
-          <td class="mono">${r.invoice}</td>
-          <td class="num mono">${fmtMoney(r.amount)}</td>
-          <td class="mono">${r.dateReceived||'—'}</td>
-          ${cfg.extraCols.map(c=>`<td class="${c.cls||''}">${c.render(r)}</td>`).join('')}
-          <td class="remarks-cell">${r.remarks||''}</td>
-        </tr>
-      `).join('') || `<tr><td colspan="${colCount}" class="empty-state">${cfg.emptyText}</td></tr>`;
-
-      document.getElementById(cfg.prefix+'-pager').innerHTML = `
-        <div>${all.length.toLocaleString()} records · page ${page+1} of ${totalPages}</div>
-        <div class="pager-btns">
-          <button id="${cfg.prefix}-prev" ${page===0?'disabled':''}>Prev</button>
-          <button id="${cfg.prefix}-next" ${page>=totalPages-1?'disabled':''}>Next</button>
-        </div>
-      `;
-      const prevBtn = document.getElementById(cfg.prefix+'-prev');
-      const nextBtn = document.getElementById(cfg.prefix+'-next');
-      if(prevBtn) prevBtn.addEventListener('click', ()=>{ page--; render(); });
-      if(nextBtn) nextBtn.addEventListener('click', ()=>{ page++; render(); });
-
-      document.querySelectorAll('#'+cfg.prefix+'-table th[data-key]').forEach(th=>{
-        th.classList.toggle('sorted', th.dataset.key === sortKey);
-      });
-    }
-
-    affEl.addEventListener('change', ()=>{ page=0; render(); });
-    searchEl.addEventListener('input', ()=>{ page=0; render(); });
-    document.querySelectorAll('#'+cfg.prefix+'-table th[data-key]').forEach(th=>{
-      th.addEventListener('click', ()=>{
-        const key = th.dataset.key;
-        if(sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = -1; }
-        render();
-      });
-    });
-
-    return render;
-  }
-
-  const renderUnpaid = createStatusBox({
-    prefix:'unpaid', status:'UNPAID', kpiClass:'rust',
-    countLabel:'Unpaid RFDs', amountLabel:'Total unpaid',
-    emptyText:'No unpaid records match this filter.',
-    extraCols:[
-      { key:'age', cls:'num', render:r=> r.age!==null ? `<span class="aging-tag ${bucketClass[ageBucket(r.age)]}">${r.age}d</span>` : '—' }
-    ]
-  });
-
-  const renderPendingOR = createStatusBox({
-    prefix:'pendingor', status:'PAID - FOR OR ISSUANCE', kpiClass:'amber',
-    countLabel:'Paid — For OR RFDs', amountLabel:'Total pending OR',
-    emptyText:'No records match this filter.',
-    extraCols:[
-      { key:'orNumber', cls:'mono', render:r=> r.orNumber||'—' },
-      { key:'age', cls:'num', render:r=> r.age!==null ? `<span class="aging-tag ${bucketClass[ageBucket(r.age)]}">${r.age}d</span>` : '—' }
-    ]
-  });
-
-  const renderPaid = createStatusBox({
-    prefix:'paid', status:'PAID', kpiClass:'teal',
-    countLabel:'Paid RFDs', amountLabel:'Total settled',
-    emptyText:'No paid records match this filter.',
-    extraCols:[
-      { key:'orNumber', cls:'mono', render:r=> r.orNumber||'—' },
-      { key:'paymentDate', cls:'mono', render:r=> r.paymentDate||'—' },
-      { render:r=> r.paymentDetails||'', cls:'remarks-cell' }
-    ]
   });
 
   // =========================================================
@@ -2360,9 +2124,6 @@
     renderAffiliates();
     renderAging();
     renderRecords();
-    renderUnpaid();
-    renderPendingOR();
-    renderPaid();
     renderAnalytics();
     renderReports();
     renderManage();
@@ -2373,9 +2134,6 @@
   renderAffiliates();
   renderAging();
   renderRecords();
-  renderUnpaid();
-  renderPendingOR();
-  renderPaid();
   renderAnalytics();
   renderReports();
   renderManage();
