@@ -680,19 +680,6 @@
 
     <div class="panel-grid">
       <div class="panel">
-        <h3>Turnaround time by affiliate</h3>
-        <div class="panel-sub">Average days from received to completion (COM DATE), paid records only</div>
-        <div id="turnaround-bars"></div>
-      </div>
-      <div class="panel">
-        <h3>Credit memo usage</h3>
-        <div class="panel-sub">Share of RFDs settled using a credit memo</div>
-        <canvas id="creditMemoDonut" height="220"></canvas>
-      </div>
-    </div>
-
-    <div class="panel-grid">
-      <div class="panel">
         <h3>Affiliate concentration</h3>
         <div class="panel-sub">Cumulative share of total disbursement value (Pareto)</div>
         <div id="pareto-affiliate"></div>
@@ -761,6 +748,7 @@
           <option value="month">Summary by month received</option>
           <option value="payee">Summary by carrier (payee)</option>
         </select>
+        <select id="report-affiliate"><option value="">All affiliates</option></select>
         <span style="font-size:12px;color:var(--text-dim);">From</span>
         <input type="date" id="report-from">
         <span style="font-size:12px;color:var(--text-dim);">to</span>
@@ -775,6 +763,16 @@
           <tbody></tbody>
         </table>
       </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <h3>Bulk upload RFDs</h3>
+      <div class="panel-sub">Add many RFDs at once from a CSV file. Expected columns: Affiliate, RFD Number, Payee, Invoice/SOA, Amount, Date Received (YYYY-MM-DD), Status, OR #, Credit Memo, Remarks — the same layout as "Export all records" produces, so an exported file can be edited and re-uploaded.</div>
+      <div class="report-select-row" style="margin-top:10px;">
+        <input type="file" id="bulk-upload-file" accept=".csv">
+        <button class="btn btn-primary" id="bulk-upload-submit">Upload</button>
+      </div>
+      <div id="bulk-upload-result" style="font-size:12.5px;color:var(--text-dim);margin-top:10px;"></div>
     </div>
   </div>
 
@@ -1314,12 +1312,14 @@
     document.getElementById('ag-affiliate').dataset.allLabel = 'All affiliates';
     document.getElementById('rec-affiliate').dataset.allLabel = 'All affiliates';
     document.getElementById('rec-status').dataset.allLabel = 'All statuses';
+    document.getElementById('report-affiliate').dataset.allLabel = 'All affiliates';
 
     fillSelect('ov-affiliate', affiliates);
     fillSelect('ov-status', statuses, statusLabel);
     fillSelect('ag-affiliate', affiliates);
     fillSelect('rec-affiliate', affiliates);
     fillSelect('rec-status', statuses, statusLabel);
+    fillSelect('report-affiliate', affiliates);
 
     const dl = document.getElementById('mg-affiliate-list');
     if(dl) dl.innerHTML = affiliates.map(a=>`<option value="${a}">`).join('');
@@ -1693,7 +1693,7 @@
   // =========================================================
   // ANALYTICS
   // =========================================================
-  let monthlyChart = null, creditMemoChart = null;
+  let monthlyChart = null;
 
   function monthKey(dateStr){
     if(!dateStr) return null;
@@ -1734,40 +1734,6 @@
       });
     }
 
-    // Turnaround time by affiliate (paid records only)
-    const turnMap = {};
-    DATA.forEach(r=>{
-      if(r.status !== 'PAID' || !r.dateReceived || !r.comDate) return;
-      const days = daysBetween(r.dateReceived, new Date(r.comDate+'T00:00:00')) * -1;
-      if(days === null || isNaN(days) || days < 0) return;
-      if(!turnMap[r.affiliate]) turnMap[r.affiliate] = { sum:0, n:0 };
-      turnMap[r.affiliate].sum += days;
-      turnMap[r.affiliate].n++;
-    });
-    const turnSorted = Object.entries(turnMap)
-      .map(([aff,v])=>[aff, v.sum/v.n])
-      .sort((a,b)=>b[1]-a[1]).slice(0,12);
-    const maxTurn = turnSorted.length ? Math.max(...turnSorted.map(x=>x[1])) : 1;
-    document.getElementById('turnaround-bars').innerHTML = turnSorted.map(([aff,avg])=>`
-      <div class="aff-row">
-        <div class="aff-name" title="${aff}">${aff}</div>
-        <div class="aff-bar-track"><div class="aff-bar-fill" style="width:${Math.max(avg/maxTurn*100,2)}%;background:${affiliateColor(aff)}"></div></div>
-        <div class="aff-amt">${avg.toFixed(0)}d</div>
-      </div>
-    `).join('') || '<div class="empty-state">Not enough paid records with completion dates yet.</div>';
-
-    // Credit memo usage
-    const cmYes = DATA.filter(r=>r.creditMemo==='YES').length;
-    const cmNo = DATA.length - cmYes;
-    if(creditMemoChart) creditMemoChart.destroy();
-    if(window.Chart){
-      creditMemoChart = new Chart(document.getElementById('creditMemoDonut'), {
-        type:'doughnut',
-        data:{ labels:['Credit memo used','No credit memo'], datasets:[{ data:[cmYes,cmNo], backgroundColor:['#c08a2e','#dbe6f5'], borderWidth:2, borderColor:'#fff' }] },
-        options:{ plugins:{ legend:{ position:'bottom', labels:{font:{family:'Inter',size:11},boxWidth:10} } }, cutout:'62%' }
-      });
-    }
-
     // Pareto: affiliate & payee concentration
     function renderPareto(containerId, groupField){
       const map = {};
@@ -1794,9 +1760,11 @@
   // REPORTS
   // =========================================================
   function reportRows(){
+    const aff = document.getElementById('report-affiliate').value;
     const from = document.getElementById('report-from').value;
     const to = document.getElementById('report-to').value;
     return DATA.filter(r=>{
+      if(aff && r.affiliate !== aff) return false;
       if(from && (!r.dateReceived || r.dateReceived < from)) return false;
       if(to && (!r.dateReceived || r.dateReceived > to)) return false;
       return true;
@@ -1872,6 +1840,7 @@
   }
 
   document.getElementById('report-type').addEventListener('change', renderReports);
+  document.getElementById('report-affiliate').addEventListener('change', renderReports);
   document.getElementById('report-from').addEventListener('change', renderReports);
   document.getElementById('report-to').addEventListener('change', renderReports);
   document.getElementById('report-export').addEventListener('click', ()=>{
@@ -1888,6 +1857,92 @@
       DATA.map(r=>[r.affiliate, r.rfd, r.payee, r.invoice, (r.amount||0).toFixed(2), r.dateReceived||'', statusLabel(r.status), r.orNumber, r.creditMemo, r.remarks])
     );
     downloadCSV(`rfd_all_records_${new Date().toISOString().slice(0,10)}.csv`, csv);
+  });
+
+  // ---------- Bulk upload (CSV) ----------
+  const BULK_HEADER_MAP = {
+    'affiliate':'affiliate',
+    'rfd number':'rfd', 'rfd #':'rfd', 'rfd':'rfd',
+    'payee':'payee',
+    'invoice/soa':'invoice', 'invoice / soa':'invoice', 'invoice':'invoice',
+    'amount':'amount',
+    'date received':'dateReceived',
+    'status':'status',
+    'or #':'orNumber', 'or#':'orNumber',
+    'credit memo':'creditMemo',
+    'remarks':'remarks'
+  };
+  function normalizeStatus(v){
+    const s = (v||'').toString().trim().toUpperCase().replace(/[—–]/g,'-').replace(/\s+/g,' ');
+    if(s === 'PAID') return 'PAID';
+    if(s === 'UNPAID') return 'UNPAID';
+    if(s.indexOf('FOR OR') !== -1) return 'PAID - FOR OR ISSUANCE';
+    return 'UNPAID';
+  }
+  function parseCSV(text){
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    const clean = text.replace(/^﻿/, '');
+    for(let i=0;i<clean.length;i++){
+      const c = clean[i];
+      if(inQuotes){
+        if(c === '"'){
+          if(clean[i+1] === '"'){ field += '"'; i++; }
+          else inQuotes = false;
+        } else field += c;
+      } else {
+        if(c === '"') inQuotes = true;
+        else if(c === ','){ row.push(field); field = ''; }
+        else if(c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+        else if(c === '\r'){ /* skip — \n follows */ }
+        else field += c;
+      }
+    }
+    if(field.length || row.length){ row.push(field); rows.push(row); }
+    return rows.filter(r=> r.some(c=>c.trim() !== ''));
+  }
+  document.getElementById('bulk-upload-submit').addEventListener('click', async ()=>{
+    const fileInput = document.getElementById('bulk-upload-file');
+    const resultEl = document.getElementById('bulk-upload-result');
+    const file = fileInput.files && fileInput.files[0];
+    if(!file){ resultEl.textContent = 'Choose a CSV file first.'; return; }
+    const text = await file.text();
+    const rows = parseCSV(text);
+    if(rows.length < 2){ resultEl.textContent = 'No data rows found in that file.'; return; }
+    const header = rows[0].map(h=> h.trim().toLowerCase());
+    const colIndex = {};
+    header.forEach((h,i)=>{ const key = BULK_HEADER_MAP[h]; if(key && colIndex[key]===undefined) colIndex[key] = i; });
+    if(colIndex.affiliate===undefined || colIndex.rfd===undefined){
+      resultEl.textContent = 'Could not find "Affiliate" and "RFD Number" columns — check the file headers match the template.';
+      return;
+    }
+    const val = (cells, key)=> colIndex[key]!==undefined ? (cells[colIndex[key]]||'').trim() : '';
+    let added = 0, skipped = 0;
+    rows.slice(1).forEach((cells, idx)=>{
+      const affiliate = val(cells,'affiliate').toUpperCase();
+      const rfd = val(cells,'rfd');
+      const amount = parseFloat(val(cells,'amount').replace(/,/g,''));
+      if(!affiliate || !rfd || isNaN(amount)){ skipped++; return; }
+      overrides.added.push({
+        id: 'added_'+Date.now()+'_'+Math.floor(Math.random()*1000)+'_'+idx,
+        source: 'Added',
+        affiliate, rfd,
+        payee: val(cells,'payee'),
+        invoice: val(cells,'invoice'),
+        amount,
+        dateReceived: val(cells,'dateReceived') || null,
+        status: normalizeStatus(val(cells,'status')),
+        orNumber: val(cells,'orNumber'),
+        creditMemo: val(cells,'creditMemo').toUpperCase()==='YES' ? 'YES' : 'NO',
+        remarks: val(cells,'remarks'),
+        ticket:'', paymentDate:'', paymentDetails:'', comDate:null, batch:'', att1:'', att2:''
+      });
+      added++;
+    });
+    saveOverrides(overrides);
+    rerenderAll();
+    fileInput.value = '';
+    resultEl.textContent = `Added ${added} RFD${added===1?'':'s'}.` + (skipped ? ` Skipped ${skipped} row${skipped===1?'':'s'} (missing affiliate, RFD number, or a valid amount).` : '');
   });
 
   // =========================================================
