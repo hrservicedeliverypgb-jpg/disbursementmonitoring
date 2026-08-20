@@ -1872,9 +1872,9 @@
     'invoice/soa':'invoice', 'invoice / soa':'invoice', 'invoice':'invoice',
     'amount':'amount',
     'date received':'dateReceived',
-    'status':'status',
+    'status':'status', 'fad status':'status',
     'or #':'orNumber', 'or#':'orNumber',
-    'credit memo':'creditMemo',
+    'credit memo':'creditMemo', 'w/credit memo':'creditMemo',
     'remarks':'remarks'
   };
   function normalizeStatus(v){
@@ -1932,6 +1932,8 @@
       resultEl.textContent = 'Could not find "Affiliate" and "RFD Number" columns — check the file headers match the template.';
       return;
     }
+    const OTHER_COLUMN_LABELS = { payee:'Payee', invoice:'Invoice/SOA', amount:'Amount', dateReceived:'Date Received', status:'Status', orNumber:'OR #', creditMemo:'Credit Memo', remarks:'Remarks' };
+    const missingCols = Object.keys(OTHER_COLUMN_LABELS).filter(k=> colIndex[k]===undefined).map(k=>OTHER_COLUMN_LABELS[k]);
     const replaceEl = document.getElementById('bulk-upload-replace');
     const replaceMode = replaceEl.checked;
     if(replaceMode){
@@ -1973,7 +1975,8 @@
     replaceEl.checked = false;
     resultEl.textContent = `${replaceMode ? 'Replaced the register — added' : 'Added'} ${added} RFD${added===1?'':'s'}.`
       + (duplicates ? ` Skipped ${duplicates} duplicate RFD number${duplicates===1?'':'s'} already in the register.` : '')
-      + (skipped ? ` Skipped ${skipped} row${skipped===1?'':'s'} (missing affiliate, RFD number, or a valid amount).` : '');
+      + (skipped ? ` Skipped ${skipped} row${skipped===1?'':'s'} (missing affiliate, RFD number, or a valid amount).` : '')
+      + (missingCols.length ? ` Note: couldn't find a column for ${missingCols.join(', ')} — those fields were left blank/default for every row.` : '');
   });
 
   // =========================================================
